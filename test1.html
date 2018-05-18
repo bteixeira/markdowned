@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Test 1</title>
+	<script
+	  src="https://code.jquery.com/jquery-2.2.4.js"
+	  integrity="sha256-iT6Q9iMJYuQiMWNd9lDyBUStIq/8PuOW33aOqmvFpqI="
+	  crossorigin="anonymous"
+	></script>
+	<style>
+		#editor {
+			background: lightgray;
+			padding: 5px;
+		}
+		.backticks {
+			font-family: monospace;
+			padding: 2px;
+			border-radius: 2px;
+			background: salmon;
+			font-weight: bold;
+		}
+	</style>
+</head>
+<body>
+	<!--
+	<div id="editor" contenteditable="true">
+		This text can be <span style="background: pink">edited</span> by the user.
+	</div>
+	-->
+	<div id="editor" contenteditable="true">
+		This text can be edited by the user.
+	</div>
+	<script>
+	var $editor = $('#editor')
+	$editor.on('input', function () {
+		//console.log('Input event')
+		//console.log(arguments)
+		updateEditor()
+	})
+
+	function updateEditor() {
+		var text = $editor.text()
+		var html = parseMD(text)
+		$editor.html(html)
+		//console.log(text)
+	}
+
+	function parseMD(md) {
+		return md.replace(/(`[^`]*`)/g, '<span class="backticks">$1</span>')
+	}
+
+	/*
+	var observer = new MutationObserver(function () {
+		console.log('Observer event')
+		console.log(arguments)
+	})
+	observer.observe(
+		$editor[0],
+		{
+			childList: true,
+			attributes: true,
+			characterData: true,
+			subtree: true,
+			attributeOldValue: true,
+			characterDataOldValue: true
+		}
+	)
+	*/
+	</script>
+</body>
+</html>
