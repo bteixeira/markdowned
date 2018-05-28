@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Test 2</title>
+	<script
+	  src="https://code.jquery.com/jquery-2.2.4.js"
+	  integrity="sha256-iT6Q9iMJYuQiMWNd9lDyBUStIq/8PuOW33aOqmvFpqI="
+	  crossorigin="anonymous"
+	></script>
+	<style>
+		#editor {
+			background: lightgray;
+			padding: 5px;
+		}
+		.backticks {
+			font-family: monospace;
+			padding: 2px;
+			border-radius: 2px;
+			background: salmon;
+			font-weight: bold;
+		}
+	</style>
+</head>
+<body>
+	<div id="editor" contenteditable="true">
+		This text can be <span class="backticks">edited</span> by the user.
+	</div>
+	<script>
+	var $editor = $('#editor')
+	$editor.on('input', function (ev) {
+		console.log('Input event')
+		console.log(ev)
+		console.log(window.getSelection())
+	})
+
+	function updateEditor() {
+	}
+
+	var observer = new MutationObserver(function (records, observer) {
+		console.log('Observer event')
+		console.log(records)
+		// XXX UPDATE se o target é um text node cujo parent é #editor e o event.type é characterData, fazer parsing ao texto e fazer target.replaceWith() com os nodes gerados
+		// se o target é um text node e o parent é um .backticks, verificar se o texto ainda tem ` no principio e fim. se nao tiver, replaceWith() com um text node
+		console.log(window.getSelection())
+	})
+	observer.observe(
+		$editor[0],
+		{
+			childList: true,
+			attributes: true,
+			characterData: true,
+			subtree: true,
+			attributeOldValue: true,
+			characterDataOldValue: true
+		}
+	)
+	</script>
+</body>
+</html>
