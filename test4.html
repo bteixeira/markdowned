@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Test 4</title>
+	<script
+			src="https://code.jquery.com/jquery-2.2.4.js"
+			integrity="sha256-iT6Q9iMJYuQiMWNd9lDyBUStIq/8PuOW33aOqmvFpqI="
+			crossorigin="anonymous"
+	></script>
+	<style>
+		#editor {
+			background: lightgray;
+			padding: 5px;
+			margin-top: 50px; /* To dodge chrome's "Paused in debugger" tooltip */
+			white-space: pre;
+		}
+		.backticks {
+			font-family: monospace;
+			padding: 2px;
+			border-radius: 2px;
+			background: salmon;
+			font-weight: bold;
+		}
+	</style>
+</head>
+<body>
+<div id="editor" contenteditable="true">This text can be <span class="backticks">`edited`</span> by the user.</div>
+<script>
+
+    var $editor = $('#editor')
+    var observer = new MutationObserver(function (records, observer) {
+		// EXPERIMENT: IGNORE RECORDS
+
+		function processNode(node, recursed) {
+		    $(node).contents().each((i, el) => {
+                const $el = $(el)
+
+                // CASE 1 -- TEXT NODE ON THE MAIN
+                if (el.nodeType === 3 /* Text Node */) {
+                    if ($el.prev().length && $el.prev()[0].nodeType === 3) {
+                        console.log(el, 'is preceded by another text node and should be merged')
+                    }
+                    if ($el.text().indexOf('`') !== -1) {
+                        console.log(el, 'contains a backtick and may have to be promoted')
+                    }
+                }
+
+                // CASE 2 -- BACKTICKS NODE
+                else if ($el.is('.backticks')) {
+                    // TODO CONFIRM THAT $el IS A SPAN AND CHANGE IT IF NOT
+                    if (el.tagName.toUpperCase() !== 'SPAN') {
+                        console.warn(el, 'SHOULD BE A SPAN')
+                    }
+                    // TODO CONFIRM THAT $el HAS EXACTLY ONE CHILD WHICH IS A TEXT NODE, MERGE THEM IF NOT
+                    if ($el.contents().length !== 1) {
+                        console.warn(el, 'SHOULD HAVE EXACTLY ONE CHILD')
+                    } else {
+                        if ($el.contents()[0].nodeType !== 3) {
+                            console.warn(el, 'SINGLE CHILD SHOULD BE A TEXT NODE')
+                        } else {
+                            // TODO CONFIRM THAT TEXT CHILD STARTS AND ENDS WITH BACKTICK, SHOW DEMOTION WARNING IF NOT
+                            if (!/^`[^`]+`$/.test($el.text())) {
+                                console.log(el, 'text no longer matches backtick format')
+                            }
+                        }
+                    }
+                }
+
+                // CASE 3 -- FREE CHILD, ASSUMED TO BE NEWLINE DIV
+                else {
+                    if (recursed) {
+                        throw new Error('FREE CHILD WHILE ALREADY RECURSING, DONT KNOW WHAT TO DO')
+                    }
+                    // TODO CONFIRM THAT $el IS DIV ELEMENT WITH NO ATTRIBUTES
+                    if (el.tagName.toUpperCase() !== 'DIV') {
+                        console.warn(el, 'FREE CHILD SHOULD BE DIV')
+                    } else if (el.attributes.length !== 0) {
+                        console.warn(el, 'FREE CHILD SHOULD HAVE NO ATTRIBUTES')
+                    }
+                    // TODO THEN RECURSE THIS FUNCTION WITH THAT CHILD DIV ELEMENT AS ARGUMENT
+                    processNode(el, true)
+                }
+
+                const focusNode = window.getSelection().focusNode
+                if (focusNode === el || $.contains(el, focusNode)) {
+                    console.log(el, 'contains carret, caution when mutating it')
+                }
+            })
+		}
+
+		processNode($editor[0])
+    })
+    observer.observe(
+        $editor[0],
+        {
+            childList: true,
+            attributes: true,
+            characterData: true,
+            subtree: true,
+            attributeOldValue: true,
+            characterDataOldValue: true
+        }
+    )
+</script>
+</body>
+</html>
