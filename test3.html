@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Test 3</title>
+	<script
+			src="https://code.jquery.com/jquery-2.2.4.js"
+			integrity="sha256-iT6Q9iMJYuQiMWNd9lDyBUStIq/8PuOW33aOqmvFpqI="
+			crossorigin="anonymous"
+	></script>
+	<style>
+		#editor {
+			background: lightgray;
+			padding: 5px;
+		}
+		.backticks {
+			font-family: monospace;
+			padding: 2px;
+			border-radius: 2px;
+			background: salmon;
+			font-weight: bold;
+		}
+	</style>
+</head>
+<body>
+<div id="editor" contenteditable="true">
+	This text can be <span class="backticks">`edited`</span> by the user.
+</div>
+<script>
+    var $editor = $('#editor')
+    var observer = new MutationObserver(function (records, observer) {
+		records.forEach(record => {
+		    const $target = $(record.target)
+			if ($target.closest('.backticks').length) {
+				if (/^`[^`]+`$/.test($target.text())) {
+				    console.log('a backticks changed but is still a backticks')
+				} else {
+				    console.log('a backticks is no longer a backticks')
+				}
+			} else {
+                console.log('this change is in the main text')
+			}
+		})
+    })
+    observer.observe(
+        $editor[0],
+        {
+            childList: true,
+            attributes: true,
+            characterData: true,
+            subtree: true,
+            attributeOldValue: true,
+            characterDataOldValue: true
+        }
+    )
+</script>
+</body>
+</html>
