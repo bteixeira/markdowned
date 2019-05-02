@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Test 5</title>
+	<script
+			src="https://code.jquery.com/jquery-2.2.4.js"
+			integrity="sha256-iT6Q9iMJYuQiMWNd9lDyBUStIq/8PuOW33aOqmvFpqI="
+			crossorigin="anonymous"
+	></script>
+	<style>
+		#editor {
+			background: lightgray;
+			padding: 5px;
+			margin-top: 50px; /* To dodge chrome's "Paused in debugger" tooltip */
+			white-space: pre;
+		}
+		.backticks {
+			font-family: monospace;
+			padding: 2px;
+			border-radius: 2px;
+			background: salmon;
+			font-weight: bold;
+		}
+	</style>
+</head>
+<body>
+<div id="editor" contenteditable="true">This text can be <span class="backticks">`edited`</span> by the user.</div>
+<script>
+
+	function hasFocus (el) {
+        const focusNode = window.getSelection().focusNode
+        if (focusNode === el || $.contains(el, focusNode)) {
+			return true
+        }
+        return false
+	}
+	function checkFocus (elem) {
+        if (hasFocus(elem)) {
+            console.log(elem, 'contains carret, caution when mutating it')
+			debugger
+        }
+	}
+    function processContainer(node, recursed) {
+        let el = $(node).contents()[0]
+		while (el) {
+			el = processNode(el, recursed)
+            // el = el.nextSibling
+        }
+    }
+    function processNode (el, recursed) {
+        const $el = $(el)
+
+        // CASE 1 -- TEXT NODE ON THE MAIN
+        if (el.nodeType === 3 /* Text Node */) {
+            // TODO!!! MUST KEEP EXECUTING THIS UNTIL THE SUCCESSOR IS *NOT* A TEXT NODE!!!
+            if (el.previousSibling && el.previousSibling.nodeType === 3) {
+                const prev = el.previousSibling
+                return mergeTextNodes(prev, el)
+            }
+            if ($el.text().indexOf('`') !== -1) {
+                return possiblyPromote(el) // TODO optimization: after promoting we can skip the newly created node
+            }
+        }
+
+        // CASE 2 -- BACKTICKS NODE
+        else if ($el.is('.backticks')) {
+            // TODO CONFIRM THAT $el IS A SPAN AND CHANGE IT IF NOT
+            if (el.tagName.toUpperCase() !== 'SPAN') {
+                console.warn(el, 'SHOULD BE A SPAN')
+            }
+            // TODO CONFIRM THAT $el HAS EXACTLY ONE CHILD WHICH IS A TEXT NODE, MERGE THEM IF NOT
+            if ($el.contents().length !== 1) {
+                console.warn(el, 'SHOULD HAVE EXACTLY ONE CHILD')
+            } else {
+                if ($el.contents()[0].nodeType !== 3) {
+                    console.warn(el, 'SINGLE CHILD SHOULD BE A TEXT NODE')
+                } else {
+                    // TODO CONFIRM THAT TEXT CHILD STARTS AND ENDS WITH BACKTICK, SHOW DEMOTION WARNING IF NOT
+                    if (!/^`[^`]+`$/.test($el.text())) {
+                        // const newEl = demote(el)
+						// processNode(newEl)
+						return demote(el)
+                    }
+                }
+            }
+        }
+
+        // CASE 3 -- FREE CHILD, ASSUMED TO BE NEWLINE DIV
+        else {
+            if (recursed) {
+                throw new Error('FREE CHILD WHILE ALREADY RECURSING, DONT KNOW WHAT TO DO')
+            }
+            // TODO CONFIRM THAT $el IS DIV ELEMENT WITH NO ATTRIBUTES
+            if (el.tagName.toUpperCase() !== 'DIV') {
+                console.warn(el, 'FREE CHILD SHOULD BE DIV')
+            } else if (el.attributes.length !== 0) {
+                console.warn(el, 'FREE CHILD SHOULD HAVE NO ATTRIBUTES')
+            }
+            // TODO THEN RECURSE THIS FUNCTION WITH THAT CHILD DIV ELEMENT AS ARGUMENT
+            processContainer(el, true)
+        }
+
+        return el.nextSibling
+	}
+    function mergeTextNodes (first, second) {
+	    let newFocusIndex = null
+	    if (hasFocus(first)) {
+	        newFocusIndex = window.getSelection().focusOffset
+		} else if (hasFocus(second)) {
+            newFocusIndex = window.getSelection().focusOffset + first.nodeValue.length
+		}
+		first.nodeValue += second.nodeValue
+		second.remove()
+		if (newFocusIndex !== null) {
+		    window.getSelection().collapse(first, newFocusIndex)
+		}
+		return first
+	}
+	function possiblyPromote (elem) {
+        var newFocusNode = null
+        var newFocusIndex
+        // TODO IF MORE THAN ONE ` IN elem:
+		if (/`.*`/.test(elem.nodeValue)) {
+			// TODO REMOVE TEXT BETWEEN FIRST TWO BACKTICKS
+			// TODO CREATE .backticks SUCCESSOR TO elem WITH REMOVED TEXT
+			// TODO IF THERE IS MORE TEXT AFTER THE REMOVED TEXT:
+				// TODO REMOVE REMAINING TEXT
+				// TODO CREATE NEW TEXT NODE SUCCESSOR TO CREATED .backticks WITH REMOVED TEXT
+			const pos1 = elem.nodeValue.indexOf('`')
+			const pos2 = elem.nodeValue.indexOf('`', pos1 + 1)
+			const backticksText = elem.nodeValue.slice(pos1, pos2 + 1)
+			const remainingText = elem.nodeValue.slice(pos2 + 1)
+
+			if (hasFocus(elem)) {
+			    const focusOffset = window.getSelection().focusOffset
+			    if (focusOffset <= pos1) {
+			        newFocusNode = elem
+					newFocusIndex = focusOffset
+				} else if (focusOffset > pos2) {
+			        newFocusIndex = focusOffset - pos2
+					newFocusNode = 'third'
+				} else {
+			        newFocusIndex = focusOffset - pos1
+                    newFocusNode = 'second'
+				}
+			}
+			elem.nodeValue = elem.nodeValue.slice(0, pos1)
+
+			const $backticks = $(`<span class="backticks">${backticksText}</span>`)
+			$backticks.insertAfter(elem)
+			if (newFocusNode === 'second') {
+			    newFocusNode = $backticks.contents()[0]
+			}
+			if (remainingText) {
+			    const newText = document.createTextNode(remainingText)
+			    $(newText).insertAfter($backticks)
+				if (newFocusNode === 'third') {
+				    newFocusNode = newText
+				}
+			} else {
+			    newFocusNode = $backticks[0].parentElement
+				newFocusIndex = $($backticks[0].parentElement).contents().length
+			}
+			if (newFocusNode) {
+			    window.getSelection().collapse(newFocusNode, newFocusIndex)
+			}
+		} else if (elem.nodeValue.indexOf('`') !== -1) {
+		// TODO ELSE (EXACTLY ONE BACKTICK):
+			// TODO KEEP ITERATING THROUGH NEXT SIBLINGS OF elem UNTIL A .backticks (WITH ` -- IT MAY HAVE BEEN REMOVED!!!) OR TEXT WITH ` IS FOUND
+			// TODO IF FOUND:
+				// TODO REMOVE TEXT FROM elem STARTING AT THE BACKTICK
+				// TODO CREATE .backticks SUCCESSOR TO elem WITH REMOVED TEXT
+        		// TODO MERGE .text() OF ALL IN-BETWEEN SIBLINGS AND ADD IT TO NEW .backticks
+				// TODO IF FOUND IS .backticks:
+					// TODO REMOVE FIRST ` OF .backticks
+					// TODO DEMOTE .backticks TO TEXT NODE
+					// TODO ADD FINAL ` TO NEW .backticks
+				// TODO IF FOUND IS TEXT WITH `:
+					// TODO REMOVE TEXT OF FOUND UNTIL THE BACKTICK
+					// TODO ADD REMOVED TEXT TO NEW .backticks
+			let endSibling = null
+			for (var sibling = elem.nextSibling ; sibling ; sibling = sibling.nextSibling) {
+			    if (sibling.textContent.indexOf('`') !== -1) {
+			        endSibling = sibling
+					break
+				}
+			}
+			if (!endSibling) {
+                return
+            }
+			const backtickIndex = elem.nodeValue.indexOf('`')
+			if (hasFocus(elem)) {
+			    if (window.getSelection().focusOffset > backtickIndex) {
+                    newFocusIndex = window.getSelection().focusOffset - backtickIndex
+					// newFocusNode is $backticks (not yet created)
+				} else {
+                    newFocusIndex = window.getSelection().focusOffset
+					newFocusNode = elem
+				}
+			} else if (hasFocus(endSibling)) {
+				newFocusIndex = elem.nodeValue.length
+                // newFocusNode is $backticks (not yet created)
+			}
+			var extractedText = elem.nodeValue.slice(backtickIndex)
+			elem.nodeValue = elem.nodeValue.slice(0, backtickIndex)
+			sibling = elem.nextSibling
+			while (sibling !== endSibling) {
+				extractedText += sibling.textContent
+				var toRemove = sibling
+				sibling = sibling.nextSibling
+				if (hasFocus(toRemove)) {
+					mustSetFocus = true
+					newFocusIndex += window.getSelection().focusOffset
+                    // newFocusNode is $backticks (not yet created)
+				} else {
+					newFocusIndex += toRemove.textContent.length
+                    // newFocusNode is $backticks (not yet created)
+				}
+				toRemove.remove()
+			}
+
+			if (hasFocus(endSibling)) {
+				mustSetFocus = true
+				newFocusIndex += window.getSelection().focusOffset
+			}
+
+			if ($(endSibling).is('.backticks')) {
+				endSibling = demote(endSibling)
+			}
+			const endIndex = endSibling.nodeValue.indexOf('`')
+
+			extractedText += endSibling.nodeValue.slice(0, endIndex + 1)
+			endSibling.nodeValue = endSibling.nodeValue.slice(endIndex + 1)
+
+			const $backticks = $(`<span class="backticks">${extractedText}</span>`)
+			$backticks.insertAfter(elem)
+			if (!newFocusNode) {
+			    newFocusNode = $backticks.contents()[0]
+			}
+
+			if (newFocusNode) {
+				window.getSelection().collapse(newFocusNode, newFocusIndex)
+			}
+
+			return endSibling
+		}
+
+		return elem.nextSibling
+	}
+	function demote (elem) {
+	    checkFocus(elem)
+		const textNode = document.createTextNode($(elem).text())
+		elem.replaceWith(textNode)
+		return textNode
+	}
+
+    var $editor = $('#editor')
+	$editor.on('input', () => processContainer($editor[0]))
+</script>
+</body>
+</html>
