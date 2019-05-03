@@ -24,27 +24,17 @@
 	</style>
 </head>
 <body>
-<div id="editor" contenteditable="true">This text can be <span class="backticks">`edited`</span> by the user.</div>
+<div id="editor" contenteditable="true">This text can be `edited` by the user.</div>
 <script>
 
 	function hasFocus (el) {
         const focusNode = window.getSelection().focusNode
-        if (focusNode === el || $.contains(el, focusNode)) {
-			return true
-        }
-        return false
-	}
-	function checkFocus (elem) {
-        if (hasFocus(elem)) {
-            console.log(elem, 'contains carret, caution when mutating it')
-			debugger
-        }
+		return (focusNode === el || $.contains(el, focusNode))
 	}
     function processContainer(node, recursed) {
         let el = $(node).contents()[0]
 		while (el) {
 			el = processNode(el, recursed)
-            // el = el.nextSibling
         }
     }
     function processNode (el, recursed) {
@@ -52,13 +42,12 @@
 
         // CASE 1 -- TEXT NODE ON THE MAIN
         if (el.nodeType === 3 /* Text Node */) {
-            // TODO!!! MUST KEEP EXECUTING THIS UNTIL THE SUCCESSOR IS *NOT* A TEXT NODE!!!
-            if (el.previousSibling && el.previousSibling.nodeType === 3) {
-                const prev = el.previousSibling
+			const prev = el.previousSibling
+            if (prev && prev.nodeType === 3) {
                 return mergeTextNodes(prev, el)
             }
             if ($el.text().indexOf('`') !== -1) {
-                return possiblyPromote(el) // TODO optimization: after promoting we can skip the newly created node
+                return possiblyPromote(el)
             }
         }
 
@@ -77,8 +66,6 @@
                 } else {
                     // TODO CONFIRM THAT TEXT CHILD STARTS AND ENDS WITH BACKTICK, SHOW DEMOTION WARNING IF NOT
                     if (!/^`[^`]+`$/.test($el.text())) {
-                        // const newEl = demote(el)
-						// processNode(newEl)
 						return demote(el)
                     }
                 }
@@ -137,7 +124,7 @@
 			        newFocusNode = elem
 					newFocusIndex = focusOffset
 				} else if (focusOffset > pos2) {
-			        newFocusIndex = focusOffset - pos2
+			        newFocusIndex = focusOffset - pos2 - 1
 					newFocusNode = 'third'
 				} else {
 			        newFocusIndex = focusOffset - pos1
@@ -158,8 +145,10 @@
 				    newFocusNode = newText
 				}
 			} else {
-			    newFocusNode = $backticks[0].parentElement
-				newFocusIndex = $($backticks[0].parentElement).contents().length
+			    if (newFocusNode === 'third') {
+                    newFocusNode = $backticks.contents()[0]
+					newFocusIndex = newFocusNode.textContent.length
+				}
 			}
 			if (newFocusNode) {
 			    window.getSelection().collapse(newFocusNode, newFocusIndex)
@@ -186,20 +175,19 @@
 				}
 			}
 			if (!endSibling) {
-                return
+                return elem.nextSibling
             }
 			const backtickIndex = elem.nodeValue.indexOf('`')
 			if (hasFocus(elem)) {
 			    if (window.getSelection().focusOffset > backtickIndex) {
                     newFocusIndex = window.getSelection().focusOffset - backtickIndex
-					// newFocusNode is $backticks (not yet created)
+					newFocusNode = 'second'
 				} else {
                     newFocusIndex = window.getSelection().focusOffset
 					newFocusNode = elem
 				}
-			} else if (hasFocus(endSibling)) {
-				newFocusIndex = elem.nodeValue.length
-                // newFocusNode is $backticks (not yet created)
+			} else {
+                newFocusIndex = window.getSelection().focusOffset - backtickIndex
 			}
 			var extractedText = elem.nodeValue.slice(backtickIndex)
 			elem.nodeValue = elem.nodeValue.slice(0, backtickIndex)
@@ -209,19 +197,22 @@
 				var toRemove = sibling
 				sibling = sibling.nextSibling
 				if (hasFocus(toRemove)) {
-					mustSetFocus = true
 					newFocusIndex += window.getSelection().focusOffset
-                    // newFocusNode is $backticks (not yet created)
-				} else {
+                    newFocusNode = 'second'
+				} else if (!newFocusNode) {
 					newFocusIndex += toRemove.textContent.length
-                    // newFocusNode is $backticks (not yet created)
 				}
 				toRemove.remove()
 			}
 
 			if (hasFocus(endSibling)) {
-				mustSetFocus = true
-				newFocusIndex += window.getSelection().focusOffset
+			    if (window.getSelection().focusOffset > endSibling.textContent.indexOf('`')) {
+			        newFocusNode = 'third'
+					newFocusIndex = window.getSelection().focusOffset - endSibling.textContent.indexOf('`')
+				} else {
+			        newFocusNode = 'second'
+					newFocusIndex = window.getSelection().focusOffset
+				}
 			}
 
 			if ($(endSibling).is('.backticks')) {
@@ -234,8 +225,11 @@
 
 			const $backticks = $(`<span class="backticks">${extractedText}</span>`)
 			$backticks.insertAfter(elem)
-			if (!newFocusNode) {
+
+			if (newFocusNode === 'second') {
 			    newFocusNode = $backticks.contents()[0]
+			} else if (newFocusNode === 'third') {
+			    newFocusNode = endSibling
 			}
 
 			if (newFocusNode) {
@@ -248,14 +242,21 @@
 		return elem.nextSibling
 	}
 	function demote (elem) {
-	    checkFocus(elem)
+	    var newFocusIndex = null
 		const textNode = document.createTextNode($(elem).text())
+	    if (hasFocus(elem)) {
+			newFocusIndex = window.getSelection().focusOffset
+		}
 		elem.replaceWith(textNode)
+		if (newFocusIndex !== null) {
+		    window.getSelection().collapse(textNode, newFocusIndex)
+        }
 		return textNode
 	}
 
     var $editor = $('#editor')
 	$editor.on('input', () => processContainer($editor[0]))
+    processContainer($editor[0])
 </script>
 </body>
 </html>

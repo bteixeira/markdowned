@@ -5,7 +5,8 @@ Proposed language features:
 #### Bold, Italics, Pre-formatted, Strikethrough
 Enclosing asterisks, underscores, backticks and hiphens, respectively. The characters will be visible but faded, just like in WhatsApp.
 
-#### Headings
+#### Others
+- Headings
 - Lists
 - Links
 - Code blocks
