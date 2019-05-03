@@ -4,6 +4,7 @@ class TextNodeWrapper {
             throw new Error('TextNodeWrapper must be given a text node as argument')
         }
         this.node = node
+        this._focusOffset = null
     }
 
     getNode () {
@@ -64,7 +65,62 @@ class TextNodeWrapper {
         return this
     }
 
+    static build (text) {
+        const textNode = document.createTextNode(text)
+        return new TextNodeWrapper(textNode)
+    }
+
+    /**
+     * @param index
+     * @param keep whether to keep the separator on this node (true) or on the generated node (false, default)
+     * @returns {*}
+     */
+    splitRight (index, keep) {
+        if (typeof index !== 'number') {
+            index = this.getText().indexOf(index)
+        }
+        if (keep) {
+            index += 1
+        }
+        if (index < 0 || index >= this.getText().length) {
+            return null
+        }
+        const splitText = this.getText().slice(index)
+        const other = TextNodeWrapper.build(splitText)
+        if (this.hasFocus()) {
+            if (window.getSelection().focusOffset <= index) {
+                this.memorizeFocus()
+            } else {
+                other._focusOffset = window.getSelection().focusOffset - index
+            }
+        } else if (this._focusOffset && this._focusOffset > index) {
+            other._focusOffset = this._focusOffset - index
+            this._focusOffset = null
+        }
+        this.getNode().textContent = this.getText().slice(0, index)
+        this.applyFocus()
+        return other
+    }
+
+    memorizeFocus () {
+        this._focusOffset = window.getSelection().focusOffset
+    }
+
+    applyFocus () {
+        if (this._focusOffset !== null) {
+            window.getSelection().collapse(this.getNode(), this._focusOffset)
+        }
+    }
+
+    promote () {
+        const $backticks = $(`<span class="backticks"/>`)
+        $backticks.append(this.getNode())
+        return $backticks
+    }
+
     hasFocus () {
+        // TODO THIS SHOULD PROBABLY ALSO RETURN TRUE IF A FOCUS OFFSET IS MEMORIZED
+        // TODO OR AT LEAST CHECK THAT THE FOCUSED NODE IS THE RIGHT ONE
         return hasFocus(this.getNode())
     }
 }

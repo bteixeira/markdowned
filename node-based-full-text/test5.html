@@ -2,11 +2,6 @@
 <html>
 <head>
 	<title>Test 5</title>
-	<script
-			src="https://code.jquery.com/jquery-2.2.4.js"
-			integrity="sha256-iT6Q9iMJYuQiMWNd9lDyBUStIq/8PuOW33aOqmvFpqI="
-			crossorigin="anonymous"
-	></script>
 	<style>
 		#editor {
 			background: lightgray;
@@ -25,6 +20,7 @@
 </head>
 <body>
 <div id="editor" contenteditable="true">This text can be `edited` by the user.</div>
+<script src="jquery-2.2.4.js"></script>
 <script src="textNodeWrapper.js"></script>
 <script>
 
@@ -100,50 +96,15 @@
         var newFocusIndex
         // TODO IF MORE THAN ONE ` IN elem:
 		if (/`.*`/.test(elem.nodeValue)) {
-			// TODO REMOVE TEXT BETWEEN FIRST TWO BACKTICKS
-			// TODO CREATE .backticks SUCCESSOR TO elem WITH REMOVED TEXT
-			// TODO IF THERE IS MORE TEXT AFTER THE REMOVED TEXT:
-				// TODO REMOVE REMAINING TEXT
-				// TODO CREATE NEW TEXT NODE SUCCESSOR TO CREATED .backticks WITH REMOVED TEXT
-			const pos1 = elem.nodeValue.indexOf('`')
-			const pos2 = elem.nodeValue.indexOf('`', pos1 + 1)
-			const backticksText = elem.nodeValue.slice(pos1, pos2 + 1)
-			const remainingText = elem.nodeValue.slice(pos2 + 1)
-
-			if (hasFocus(elem)) {
-			    const focusOffset = window.getSelection().focusOffset
-			    if (focusOffset <= pos1) {
-			        newFocusNode = elem
-					newFocusIndex = focusOffset
-				} else if (focusOffset > pos2) {
-			        newFocusIndex = focusOffset - pos2 - 1
-					newFocusNode = 'third'
-				} else {
-			        newFocusIndex = focusOffset - pos1
-                    newFocusNode = 'second'
-				}
-			}
-			elem.nodeValue = elem.nodeValue.slice(0, pos1)
-
-			const $backticks = $(`<span class="backticks">${backticksText}</span>`)
-			$backticks.insertAfter(elem)
-			if (newFocusNode === 'second') {
-			    newFocusNode = $backticks.contents()[0]
-			}
-			if (remainingText) {
-			    const newText = document.createTextNode(remainingText)
-			    $(newText).insertAfter($backticks)
-				if (newFocusNode === 'third') {
-				    newFocusNode = newText
-				}
-			} else {
-			    if (newFocusNode === 'third') {
-                    newFocusNode = $backticks.contents()[0]
-					newFocusIndex = newFocusNode.textContent.length
-				}
-			}
-			if (newFocusNode) {
-			    window.getSelection().collapse(newFocusNode, newFocusIndex)
+            const elemWrapper = new TextNodeWrapper(elem)
+			const backticksWrapper = elemWrapper.splitRight('`')
+			const remainingWrapper = backticksWrapper.splitRight(backticksWrapper.getText().indexOf('`', 1), true)
+			const $backticks = backticksWrapper.promote()
+			$backticks.insertAfter(elemWrapper.getNode())
+			backticksWrapper.applyFocus()
+			if (remainingWrapper) {
+			    $(remainingWrapper.getNode()).insertAfter($backticks)
+				remainingWrapper.applyFocus()
 			}
 		} else if (elem.nodeValue.indexOf('`') !== -1) {
 		// TODO ELSE (EXACTLY ONE BACKTICK):
